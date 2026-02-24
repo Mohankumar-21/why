@@ -16,6 +16,7 @@ import {
   Hash,
   Send,
   Flame,
+  Zap,
   X,
   User,
   Heart,
@@ -25,7 +26,18 @@ import {
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
-const CATEGORIES: (Category | 'All')[] = ['All', 'General', 'Sports', 'Spiritual', 'Technology', 'Life'];
+const CATEGORIES: (Category | 'All')[] = [
+  'All', 
+  'General', 
+  'Sports', 
+  'Spiritual', 
+  'Technology', 
+  'Life', 
+  'Health', 
+  'Business', 
+  'Entertainment', 
+  'Other'
+];
 
 function App() {
   const { theme, toggleTheme } = useTheme();
@@ -69,7 +81,7 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-white dark:bg-[#0B0F1A] text-slate-900 dark:text-slate-100 transition-colors duration-300">
+    <div className="min-h-screen flex flex-col bg-slate-50/50 dark:bg-[#0B0F1A] text-slate-900 dark:text-slate-100 transition-colors duration-300">
       {/* Navbar */}
       <nav className="sticky top-0 z-50 bg-white/80 dark:bg-[#0B0F1A]/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 w-full px-6 shrink-0 h-16 flex items-center justify-between">
         <div className="flex items-center gap-4">
@@ -78,11 +90,11 @@ function App() {
               <ChevronLeft className="w-6 h-6" />
             </Button>
           )}
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
-              <MessageSquare className="w-5 h-5 text-white" />
+          <div className="flex items-center gap-2 group cursor-pointer">
+            <div className="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-200 dark:shadow-none transition-transform group-hover:scale-110">
+              <MessageSquare className="w-5 h-5 text-white fill-current" />
             </div>
-            <span className="font-bold text-xl tracking-tight">Why</span>
+            <span className="font-black text-2xl tracking-tighter bg-gradient-to-r from-indigo-600 to-indigo-400 bg-clip-text text-transparent">Why</span>
           </div>
         </div>
         
@@ -262,16 +274,39 @@ function QuestionCard({ question, onVote, onClick }: { question: Question, onVot
     const votes = JSON.parse(localStorage.getItem('user_votes') || '{}');
     const current = votes[question.id] || 0;
     
+    // Logic: If clicking same direction, remove vote (return to 0).
+    // If clicking opposite direction, switch vote (-1 to 1 or 1 to -1).
+    
     if (direction === 'up') {
-      if (current === 1) return;
-      onVote(question.id, 'up', 1);
-      if (current === -1) onVote(question.id, 'down', -1);
-      votes[question.id] = 1;
+      if (current === 1) {
+        // Toggle off
+        onVote(question.id, 'up', -1);
+        votes[question.id] = 0;
+      } else if (current === -1) {
+        // Switch from down to up
+        onVote(question.id, 'down', -1);
+        onVote(question.id, 'up', 1);
+        votes[question.id] = 1;
+      } else {
+        // Just upvote
+        onVote(question.id, 'up', 1);
+        votes[question.id] = 1;
+      }
     } else {
-      if (current === -1) return;
-      onVote(question.id, 'down', 1);
-      if (current === 1) onVote(question.id, 'up', -1);
-      votes[question.id] = -1;
+      if (current === -1) {
+        // Toggle off
+        onVote(question.id, 'down', -1);
+        votes[question.id] = 0;
+      } else if (current === 1) {
+        // Switch from up to down
+        onVote(question.id, 'up', -1);
+        onVote(question.id, 'down', 1);
+        votes[question.id] = -1;
+      } else {
+        // Just downvote
+        onVote(question.id, 'down', 1);
+        votes[question.id] = -1;
+      }
     }
     
     localStorage.setItem('user_votes', JSON.stringify(votes));
@@ -279,32 +314,50 @@ function QuestionCard({ question, onVote, onClick }: { question: Question, onVot
   };
 
   const isTrending = question.score > 8 || question.commentCount >= 5;
+  const isHot = question.commentCount >= 10;
   const createdAt = question.createdAt instanceof Date ? question.createdAt : (question.createdAt as any)?.toDate();
 
   return (
     <Card 
       onClick={onClick} 
       className={cn(
-        "flex flex-col hover:border-indigo-300 dark:hover:border-indigo-800 transition-all duration-300 h-full cursor-pointer group bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md",
+        "flex flex-col hover:border-indigo-300 dark:hover:border-indigo-800 transition-all duration-300 h-full cursor-pointer group bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md relative overflow-hidden",
         isTrending && "ring-2 ring-orange-500/20 dark:ring-orange-500/10 border-orange-200 dark:border-orange-900/50 shadow-orange-100/50 dark:shadow-none bg-orange-50/10 dark:bg-orange-950/5"
       )}
     >
+      {/* Visual Trending Indicator Line */}
+      {isTrending && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-orange-400 to-rose-500" />}
+
       <div className="p-6 flex-1 space-y-4">
         <div className="flex items-center justify-between gap-4 border-b dark:border-slate-800 pb-4">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center border dark:border-slate-700">
-              <User className="w-4 h-4 text-slate-500" />
-            </div>
-            <div className="flex flex-col overflow-hidden">
-              <span className="text-sm font-bold text-slate-700 dark:text-slate-300 truncate">{question.author || 'Anonymous User'}</span>
-              <span className="text-[10px] text-slate-500">
-                {createdAt ? formatDistanceToNow(createdAt, { addSuffix: true }) : 'just now'}
-              </span>
+          <div className="flex items-center gap-3">
+            {isTrending && (
+              <div className={cn(
+                "w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg shrink-0 outline outline-4 outline-white dark:outline-slate-900",
+                isHot ? "bg-orange-600 shadow-orange-200 dark:shadow-none animate-pulse" : "bg-orange-100 dark:bg-orange-900/40"
+              )}>
+                {isHot ? <Zap className="w-5 h-5 text-white fill-current" /> : <Flame className="w-5 h-5 text-orange-600 fill-current" />}
+              </div>
+            )}
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center border dark:border-slate-700">
+                <User className="w-4 h-4 text-slate-500" />
+              </div>
+              <div className="flex flex-col overflow-hidden">
+                <span className="text-sm font-bold text-slate-700 dark:text-slate-300 truncate">{question.author || 'Anonymous User'}</span>
+                <span className="text-[10px] text-slate-500">
+                  {createdAt ? formatDistanceToNow(createdAt, { addSuffix: true }) : 'just now'}
+                </span>
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            {isHot && (
+              <span className="px-2 py-0.5 bg-rose-500 text-white text-[9px] font-black uppercase tracking-tighter rounded-md animate-bounce">
+                Hot
+              </span>
+            )}
             <span className="px-3 py-1 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-[10px] font-bold uppercase tracking-widest rounded-full border border-indigo-100 dark:border-indigo-800/50">{question.category}</span>
-            {isTrending && <Flame className="w-5 h-5 text-orange-500 fill-current animate-pulse" />}
           </div>
         </div>
         <h3 className="text-xl font-bold leading-tight line-clamp-4 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{question.title}</h3>
@@ -329,7 +382,7 @@ function QuestionCard({ question, onVote, onClick }: { question: Question, onVot
 }
 
 // Question Detail View
-function QuestionDetail({ question, onVote, onBack }: { question: Question, onVote: any, onBack: () => void }) {
+function QuestionDetail({ question }: { question: Question, onVote: any, onBack: () => void }) {
   const { comments, loading, addComment, likeComment } = useComments(question.id);
   const [text, setText] = useState('');
   const createdAt = question.createdAt instanceof Date ? question.createdAt : (question.createdAt as any)?.toDate();
@@ -394,7 +447,7 @@ function QuestionDetail({ question, onVote, onBack }: { question: Question, onVo
 
 // Comment Item with Nested Replies
 function CommentItem({ comment, questionId, onLike }: { comment: Comment, questionId: string, onLike: (amt: number) => void }) {
-  const { replies, loading, addReply } = useReplies(questionId, comment.id);
+  const { replies, addReply } = useReplies(questionId, comment.id);
   const [showReplyForm, setShowReplyForm] = useState(false);
   const [replyText, setReplyText] = useState('');
   const [isLiked, setIsLiked] = useState(() => {

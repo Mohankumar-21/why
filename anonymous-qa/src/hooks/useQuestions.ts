@@ -36,10 +36,14 @@ export function useQuestions(category: Category | 'All' = 'All') {
         filtered = docs.filter(q => q.category === category);
       }
       
-      // Sort by score (descending) as primary, createdAt as secondary
+      // Sort by trending score (descending)
+      // score + (commentCount * 2) provides a balanced view of approval + engagement
       filtered.sort((a, b) => {
-        const scoreDiff = b.score - a.score;
-        if (scoreDiff !== 0) return scoreDiff;
+        const aTrending = (a.score || 0) + ((a.commentCount || 0) * 2);
+        const bTrending = (b.score || 0) + ((b.commentCount || 0) * 2);
+        
+        const trendDiff = bTrending - aTrending;
+        if (trendDiff !== 0) return trendDiff;
         
         const aDate = a.createdAt instanceof Date ? a.createdAt : (a.createdAt as any).toDate();
         const bDate = b.createdAt instanceof Date ? b.createdAt : (b.createdAt as any).toDate();

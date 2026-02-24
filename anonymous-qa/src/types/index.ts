@@ -1,6 +1,6 @@
 import { Timestamp } from 'firebase/firestore';
 
-export type Category = 'General' | 'Sports' | 'Spiritual' | 'Technology' | 'Life';
+export type Category = 'General' | 'Sports' | 'Spiritual' | 'Technology' | 'Life' | 'Health' | 'Business' | 'Entertainment' | 'Other';
 
 export interface Question {
   id: string;

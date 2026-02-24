@@ -23,10 +23,14 @@ import {
   ChevronLeft,
   Reply as ReplyIcon,
   Info,
-  Trash2
+  Trash2,
+  Languages,
+  Check,
+  ChevronDown
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { getAnonymousUserId, getAnonymousIdentity } from './utils/names';
+import { translateText, SUPPORTED_LANGUAGES } from './utils/translation';
 
 const CATEGORIES: (Category | 'All')[] = [
   'All', 
@@ -48,6 +52,7 @@ function App() {
   const { canPost, timeLeft, recordPost } = useSpamPrevention();
   
   // Navigation State
+
   const [view, setView] = useState<'feed' | 'detail'>('feed');
   const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(null);
 
@@ -264,12 +269,35 @@ function App() {
 // Question Card Component
 function QuestionCard({ question, onVote, onClick }: { question: Question, onVote: any, onClick: () => void }) {
   const [useVote, setUseVote] = useState<number>(0);
+  const [translatedTitle, setTranslatedTitle] = useState<string | null>(null);
+  const [isTranslating, setIsTranslating] = useState(false);
+  const [showLangPicker, setShowLangPicker] = useState(false);
+  const [selectedLang, setSelectedLang] = useState<string | null>(null);
 
   useEffect(() => {
     const votes = JSON.parse(localStorage.getItem('user_votes') || '{}');
     const myVote = votes[question.id];
     if (typeof myVote === 'number') setUseVote(myVote);
   }, [question.id]);
+
+  const handleTranslate = async (langCode: string) => {
+    if (selectedLang === langCode) {
+      setTranslatedTitle(null);
+      setSelectedLang(null);
+      setShowLangPicker(false);
+      return;
+    }
+
+    setIsTranslating(true);
+    setShowLangPicker(false);
+    try {
+      const translated = await translateText(question.title, langCode);
+      setTranslatedTitle(translated);
+      setSelectedLang(langCode);
+    } finally {
+      setIsTranslating(false);
+    }
+  };
 
   const handleVote = (e: React.MouseEvent, direction: 'up' | 'down') => {
     e.stopPropagation();
@@ -323,7 +351,7 @@ function QuestionCard({ question, onVote, onClick }: { question: Question, onVot
     <Card 
       onClick={onClick} 
       className={cn(
-        "flex flex-col hover:border-indigo-300 dark:hover:border-indigo-800 transition-all duration-300 h-full cursor-pointer group bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md relative overflow-hidden",
+        "flex flex-col hover:border-indigo-300 dark:hover:border-indigo-800 transition-all duration-300 h-full cursor-pointer group bg-white dark:bg-black border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md relative overflow-hidden",
         isTrending && "ring-2 ring-orange-500/20 dark:ring-orange-500/10 border-orange-200 dark:border-orange-900/50 shadow-orange-100/50 dark:shadow-none bg-orange-50/10 dark:bg-orange-950/5"
       )}
     >
@@ -362,18 +390,89 @@ function QuestionCard({ question, onVote, onClick }: { question: Question, onVot
             <span className="px-3 py-1 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-[10px] font-bold uppercase tracking-widest rounded-full border border-indigo-100 dark:border-indigo-800/50">{question.category}</span>
           </div>
         </div>
-        <h3 className="text-xl font-bold leading-tight line-clamp-4 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{question.title}</h3>
-      </div>
-      <div className="p-4 bg-slate-50/50 dark:bg-slate-800/20 border-t border-slate-100 dark:border-slate-800/50 flex items-center justify-between mt-auto">
-        <div className="flex items-center gap-1 bg-white dark:bg-slate-900 border dark:border-slate-800 rounded-xl p-1">
-          <button onClick={(e) => handleVote(e, 'up')} className={cn("p-2 rounded-lg transition-all", useVote === 1 ? "bg-orange-100 text-orange-600 dark:bg-orange-950/40" : "text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800")}>
-            <ArrowBigUp className={cn("w-6 h-6", useVote === 1 && "fill-current")} />
-          </button>
-          <span className={cn("font-black text-sm px-1 min-w-[28px] text-center", useVote === 1 ? "text-orange-600" : useVote === -1 ? "text-indigo-600" : "text-slate-700 dark:text-slate-300")}>{question.score}</span>
-          <button onClick={(e) => handleVote(e, 'down')} className={cn("p-2 rounded-lg transition-all", useVote === -1 ? "bg-indigo-100 text-indigo-600 dark:bg-indigo-950/40" : "text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800")}>
-            <ArrowBigDown className={cn("w-6 h-6", useVote === -1 && "fill-current")} />
-          </button>
+        
+        <div className="space-y-3">
+          <h3 className={cn(
+            "text-xl font-bold leading-tight line-clamp-4 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors",
+            translatedTitle && "text-slate-500 dark:text-slate-400 text-sm font-medium line-clamp-2"
+          )}>
+            {question.title}
+          </h3>
+          {translatedTitle && (
+            <div className="animate-in fade-in slide-in-from-top-1 duration-300">
+              <p className="text-xl font-bold leading-tight text-indigo-600 dark:text-indigo-400 italic">
+                {translatedTitle}
+              </p>
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-600 mt-1 block">Translated to {SUPPORTED_LANGUAGES.find(l => l.code === selectedLang)?.name}</span>
+            </div>
+          )}
         </div>
+      </div>
+
+      <div className="px-4 py-3 bg-slate-50/50 dark:bg-slate-800/20 border-t border-slate-100 dark:border-slate-800/50 flex items-center justify-between mt-auto">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1 bg-white dark:bg-slate-900 border dark:border-slate-800 rounded-xl p-1">
+            <button onClick={(e) => handleVote(e, 'up')} className={cn("p-2 rounded-lg transition-all", useVote === 1 ? "bg-orange-100 text-orange-600 dark:bg-orange-950/40" : "text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800")}>
+              <ArrowBigUp className={cn("w-6 h-6", useVote === 1 && "fill-current")} />
+            </button>
+            <span className={cn("font-black text-sm px-1 min-w-[28px] text-center", useVote === 1 ? "text-orange-600" : useVote === -1 ? "text-indigo-600" : "text-slate-700 dark:text-slate-300")}>{question.score}</span>
+            <button onClick={(e) => handleVote(e, 'down')} className={cn("p-2 rounded-lg transition-all", useVote === -1 ? "bg-indigo-100 text-indigo-600 dark:bg-indigo-950/40" : "text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800")}>
+              <ArrowBigDown className={cn("w-6 h-6", useVote === -1 && "fill-current")} />
+            </button>
+          </div>
+
+          <div className="relative">
+            <button 
+              onClick={(e) => { e.stopPropagation(); setShowLangPicker(!showLangPicker); }}
+              className={cn(
+                "p-2.5 rounded-xl border transition-all flex items-center justify-center gap-1",
+                selectedLang 
+                  ? "bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-200 dark:shadow-none" 
+                  : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-500 hover:border-indigo-400 dark:hover:border-indigo-800"
+              )}
+              title="Translate question"
+            >
+              {isTranslating ? (
+                <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <>
+                  <Languages className="w-5 h-5" />
+                  <ChevronDown className={cn("w-3 h-3 transition-transform", showLangPicker && "rotate-180")} />
+                </>
+              )}
+            </button>
+
+            {showLangPicker && (
+              <div 
+                className="absolute bottom-full left-0 mb-2 w-40 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl py-2 z-[60] animate-in fade-in zoom-in-95 duration-200"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {SUPPORTED_LANGUAGES.map(lang => (
+                  <button
+                    key={lang.code}
+                    onClick={() => handleTranslate(lang.code)}
+                    className={cn(
+                      "w-full px-4 py-2.5 text-left text-sm font-bold flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors",
+                      selectedLang === lang.code ? "text-indigo-600 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-900/20" : "text-slate-600 dark:text-slate-400"
+                    )}
+                  >
+                    {lang.name}
+                    {selectedLang === lang.code && <Check className="w-4 h-4" />}
+                  </button>
+                ))}
+                {selectedLang && (
+                  <button
+                    onClick={() => { setTranslatedTitle(null); setSelectedLang(null); setShowLangPicker(false); }}
+                    className="w-full px-4 py-2.5 text-left text-xs font-black uppercase tracking-widest text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors border-t dark:border-slate-800 mt-1"
+                  >
+                    Clear Translation
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+        
         <div className="flex items-center gap-2 text-slate-500 font-bold text-sm">
           <MessageSquare className="w-5 h-5" />
           {question.commentCount || 0}

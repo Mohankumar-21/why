@@ -440,8 +440,7 @@ function QuestionCard({ question, onVote, onClick }: { question: Question, onVot
                   <ChevronDown className={cn("w-3 h-3 transition-transform", showLangPicker && "rotate-180")} />
                 </>
               )}
-            </button>
-
+            </button> 
             {showLangPicker && (
               <div 
                 className="absolute bottom-full left-0 mb-2 w-40 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl py-2 z-[60] animate-in fade-in zoom-in-95 duration-200"
@@ -486,7 +485,31 @@ function QuestionCard({ question, onVote, onClick }: { question: Question, onVot
 function QuestionDetail({ question }: { question: Question, onVote: any, onBack: () => void }) {
   const { comments, loading, addComment, likeComment, deleteComment } = useComments(question.id);
   const [text, setText] = useState('');
+  const [translatedTitle, setTranslatedTitle] = useState<string | null>(null);
+  const [isTranslating, setIsTranslating] = useState(false);
+  const [showLangPicker, setShowLangPicker] = useState(false);
+  const [selectedLang, setSelectedLang] = useState<string | null>(null);
+
   const createdAt = question.createdAt instanceof Date ? question.createdAt : (question.createdAt as any)?.toDate();
+
+  const handleTranslate = async (langCode: string) => {
+    if (selectedLang === langCode) {
+      setTranslatedTitle(null);
+      setSelectedLang(null);
+      setShowLangPicker(false);
+      return;
+    }
+
+    setIsTranslating(true);
+    setShowLangPicker(false);
+    try {
+      const translated = await translateText(question.title, langCode);
+      setTranslatedTitle(translated);
+      setSelectedLang(langCode);
+    } finally {
+      setIsTranslating(false);
+    }
+  };
 
   const handleAddComment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -507,9 +530,80 @@ function QuestionDetail({ question }: { question: Question, onVote: any, onBack:
                  <p className="text-sm text-slate-500 font-medium">{createdAt ? formatDistanceToNow(createdAt, { addSuffix: true }) : 'just now'}</p>
                </div>
             </div>
-            <span className="px-4 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 font-bold text-[10px] uppercase tracking-widest rounded-full border border-indigo-200 dark:border-indigo-800">{question.category}</span>
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <button 
+                  onClick={() => setShowLangPicker(!showLangPicker)}
+                  className={cn(
+                    "p-2.5 rounded-xl border transition-all flex items-center justify-center gap-2",
+                    selectedLang 
+                      ? "bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-200 dark:shadow-none" 
+                      : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-500 hover:border-indigo-400 dark:hover:border-indigo-800"
+                  )}
+                  title="Translate question"
+                >
+                  {isTranslating ? (
+                    <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <Languages className="w-5 h-5" />
+                      <span className="text-xs font-bold hidden sm:block">Translate</span>
+                      <ChevronDown className={cn("w-3 h-3 transition-transform", showLangPicker && "rotate-180")} />
+                    </>
+                  )}
+                </button>
+
+                {showLangPicker && (
+                  <div className="absolute top-full right-0 mt-2 w-48 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl py-2 z-[60] animate-in fade-in zoom-in-95 duration-200">
+                    {SUPPORTED_LANGUAGES.map(lang => (
+                      <button
+                        key={lang.code}
+                        onClick={() => handleTranslate(lang.code)}
+                        className={cn(
+                          "w-full px-4 py-2.5 text-left text-sm font-bold flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors",
+                          selectedLang === lang.code ? "text-indigo-600 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-900/20" : "text-slate-600 dark:text-slate-400"
+                        )}
+                      >
+                        {lang.name}
+                        {selectedLang === lang.code && <Check className="w-4 h-4" />}
+                      </button>
+                    ))}
+                    {selectedLang && (
+                      <button
+                        onClick={() => { setTranslatedTitle(null); setSelectedLang(null); setShowLangPicker(false); }}
+                        className="w-full px-4 py-2.5 text-left text-xs font-black uppercase tracking-widest text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors border-t dark:border-slate-800 mt-1"
+                      >
+                        Clear Translation
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+              <span className="px-4 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 font-bold text-[10px] uppercase tracking-widest rounded-full border border-indigo-200 dark:border-indigo-800">{question.category}</span>
+            </div>
           </div>
-          <h1 className="text-2xl lg:text-3xl font-black leading-tight text-slate-900 dark:text-white">{question.title}</h1>
+          
+          <div className="space-y-4">
+            <h1 className={cn(
+              "text-2xl lg:text-4xl font-black leading-tight text-slate-900 dark:text-white transition-all",
+              translatedTitle && "text-slate-500 dark:text-slate-400 text-lg lg:text-xl font-medium"
+            )}>
+              {question.title}
+            </h1>
+            {translatedTitle && (
+              <div className="animate-in fade-in slide-in-from-top-2 duration-500">
+                <p className="text-3xl lg:text-4xl font-black leading-tight text-indigo-600 dark:text-indigo-400 italic">
+                  {translatedTitle}
+                </p>
+                <div className="flex items-center gap-2 mt-2">
+                  <span className="px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-300 text-[10px] font-black uppercase tracking-widest rounded-md">
+                    {SUPPORTED_LANGUAGES.find(l => l.code === selectedLang)?.name}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+
           <div className="flex items-center gap-6">
              <div className="flex items-center gap-3 bg-slate-100 dark:bg-slate-800 px-4 py-2 rounded-2xl border border-slate-200 dark:border-slate-700">
                 <ArrowBigUp className="w-6 h-6 text-slate-400" />

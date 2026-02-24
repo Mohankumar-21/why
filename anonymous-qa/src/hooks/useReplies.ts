@@ -15,6 +15,8 @@ import { Reply } from '../types';
 import { getAnonymousIdentity, getAnonymousUserId } from '../utils/names';
 import { deleteDoc } from 'firebase/firestore';
 
+
+
 export function useReplies(questionId: string, commentId: string) {
   const [replies, setReplies] = useState<Reply[]>([]);
   const [loading, setLoading] = useState(true);

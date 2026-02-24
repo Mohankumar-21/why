@@ -19,6 +19,7 @@ export interface Comment {
   id: string;
   text: string;
   author: string;
+  authorId: string;
   createdAt: Timestamp;
   likes: number;
   repliesCount: number;
@@ -28,5 +29,6 @@ export interface Reply {
   id: string;
   text: string;
   author: string;
+  authorId: string;
   createdAt: Timestamp;
 }

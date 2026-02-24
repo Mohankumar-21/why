@@ -22,9 +22,11 @@ import {
   Heart,
   ChevronLeft,
   Reply as ReplyIcon,
-  Info
+  Info,
+  Trash2
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { getAnonymousUserId, getAnonymousIdentity } from './utils/names';
 
 const CATEGORIES: (Category | 'All')[] = [
   'All', 
@@ -383,7 +385,7 @@ function QuestionCard({ question, onVote, onClick }: { question: Question, onVot
 
 // Question Detail View
 function QuestionDetail({ question }: { question: Question, onVote: any, onBack: () => void }) {
-  const { comments, loading, addComment, likeComment } = useComments(question.id);
+  const { comments, loading, addComment, likeComment, deleteComment } = useComments(question.id);
   const [text, setText] = useState('');
   const createdAt = question.createdAt instanceof Date ? question.createdAt : (question.createdAt as any)?.toDate();
 
@@ -436,7 +438,23 @@ function QuestionDetail({ question }: { question: Question, onVote: any, onBack:
               <button type="submit" disabled={!text.trim()} className="absolute right-4 bottom-4 w-12 h-12 bg-indigo-600 text-white rounded-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all shadow-lg shadow-indigo-300 dark:shadow-none disabled:bg-slate-200 dark:disabled:bg-slate-800"><Send className="w-6 h-6" /></button>
             </form>
             <div className="space-y-8">
-              {loading ? <div className="text-center py-10 text-slate-400">Loading discussion...</div> : comments.length === 0 ? <div className="text-center py-20 bg-white dark:bg-slate-900/50 rounded-3xl border-2 border-dashed border-slate-200 dark:border-slate-800"><p className="text-slate-400 italic">No one has spoken yet. Be the first!</p></div> : comments.map(comment => <CommentItem key={comment.id} comment={comment} questionId={question.id} onLike={(amt) => likeComment(comment.id, amt)} />)}
+              {loading ? (
+                <div className="text-center py-10 text-slate-400">Loading discussion...</div>
+              ) : comments.length === 0 ? (
+                <div className="text-center py-20 bg-white dark:bg-slate-900/50 rounded-3xl border-2 border-dashed border-slate-200 dark:border-slate-800">
+                  <p className="text-slate-400 italic">No one has spoken yet. Be the first!</p>
+                </div>
+              ) : (
+                comments.map(comment => (
+                  <CommentItem 
+                    key={comment.id} 
+                    comment={comment} 
+                    questionId={question.id} 
+                    onLike={(amt) => likeComment(comment.id, amt)} 
+                    onDelete={() => deleteComment(comment.id)}
+                  />
+                ))
+              )}
             </div>
           </div>
         </div>
@@ -446,14 +464,19 @@ function QuestionDetail({ question }: { question: Question, onVote: any, onBack:
 }
 
 // Comment Item with Nested Replies
-function CommentItem({ comment, questionId, onLike }: { comment: Comment, questionId: string, onLike: (amt: number) => void }) {
-  const { replies, addReply } = useReplies(questionId, comment.id);
+function CommentItem({ comment, questionId, onLike, onDelete }: { comment: Comment, questionId: string, onLike: (amt: number) => void, onDelete: () => void }) {
+  const { replies, addReply, deleteReply } = useReplies(questionId, comment.id);
   const [showReplyForm, setShowReplyForm] = useState(false);
   const [replyText, setReplyText] = useState('');
   const [isLiked, setIsLiked] = useState(() => {
     const likes = JSON.parse(localStorage.getItem('comment_likes') || '{}');
     return !!likes[comment.id];
   });
+  
+  const currentUserId = getAnonymousUserId();
+  // For older comments without authorId, we check if the author name matches exactly (fallible but better than nothing)
+  // In a real app we'd migrate data, but for this anonymous app we'll be slightly more permissive for the current session user
+  const isAuthor = comment.authorId === currentUserId || (comment.author === getAnonymousIdentity() && !comment.authorId);
 
   const handleLike = () => {
     const likes = JSON.parse(localStorage.getItem('comment_likes') || '{}');
@@ -480,7 +503,18 @@ function CommentItem({ comment, questionId, onLike }: { comment: Comment, questi
 
   return (
     <div className="space-y-4 animate-in fade-in duration-500">
-      <div className="p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-sm transition-all hover:border-indigo-200 dark:hover:border-indigo-800">
+      <div className="p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-sm transition-all hover:border-indigo-200 dark:hover:border-indigo-800 relative group">
+        
+        {isAuthor && (
+          <button 
+            onClick={() => { if(window.confirm('Delete this comment and all its replies?')) onDelete(); }}
+            className="absolute top-6 right-6 p-2 text-slate-400 hover:text-rose-500 bg-slate-50 dark:bg-slate-800 rounded-xl transition-all hover:scale-110 shadow-sm border dark:border-slate-700"
+            title="Delete your comment"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        )}
+
         <div className="flex gap-4">
           <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center shrink-0 border dark:border-slate-700"><User className="w-5 h-5 text-slate-400" /></div>
           <div className="flex-1 space-y-3 px-1">
@@ -505,7 +539,18 @@ function CommentItem({ comment, questionId, onLike }: { comment: Comment, questi
       {replies.length > 0 && (
         <div className="ml-8 lg:ml-14 space-y-4 border-l-2 border-indigo-100 dark:border-indigo-900/40 pl-6 py-2">
           {replies.map(reply => (
-            <div key={reply.id} className="bg-slate-50/80 dark:bg-slate-800/20 p-5 rounded-2xl border border-slate-100 dark:border-slate-800/40 relative shadow-sm hover:bg-white dark:hover:bg-slate-800/40 transition-colors">
+            <div key={reply.id} className="bg-slate-50/80 dark:bg-slate-800/20 p-5 rounded-2xl border border-slate-100 dark:border-slate-800/40 relative shadow-sm hover:bg-white dark:hover:bg-slate-800/40 transition-colors group/reply">
+              
+              {(reply.authorId === currentUserId || (reply.author === getAnonymousIdentity() && !reply.authorId)) && (
+                <button 
+                  onClick={() => { if(window.confirm('Delete this reply?')) deleteReply(reply.id); }}
+                  className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-rose-500 bg-white dark:bg-slate-900 border dark:border-slate-800 rounded-lg transition-all hover:scale-110 shadow-sm"
+                  title="Delete your reply"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              )}
+
               <div className="flex items-center gap-2 mb-2">
                  <div className="w-6 h-6 rounded-lg bg-indigo-50 dark:bg-indigo-900/40 flex items-center justify-center"><User className="w-3 h-3 text-indigo-400" /></div>
                  <span className="text-[11px] font-black text-slate-600 dark:text-slate-400 truncate max-w-[120px]">{reply.author || 'Anonymous'}</span>

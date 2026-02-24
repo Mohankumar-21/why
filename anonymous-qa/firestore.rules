@@ -6,7 +6,10 @@ service cloud.firestore {
     match /questions/{questionId} {
       allow read: if true;
       allow create: if request.resource.data.title.size() > 0 
-                    && request.resource.data.category in ['General', 'Sports', 'Spiritual', 'Technology', 'Life'];
+                    && request.resource.data.category in [
+                      'General', 'Sports', 'Spiritual', 'Technology', 'Life', 
+                      'Health', 'Business', 'Entertainment', 'Other'
+                    ];
       allow update: if request.resource.data.diff(resource.data).affectedKeys()
                     .hasAny(['upvotes', 'downvotes', 'score', 'commentCount', 'isTrending']);
       
@@ -15,10 +18,12 @@ service cloud.firestore {
         allow create: if request.resource.data.text.size() > 0;
         allow update: if request.resource.data.diff(resource.data).affectedKeys()
                       .hasAny(['likes', 'repliesCount']);
+        allow delete: if true; // In production, verify authorId
 
         match /replies/{replyId} {
           allow read: if true;
           allow create: if request.resource.data.text.size() > 0;
+          allow delete: if true; // In production, verify authorId
         }
       }
     }

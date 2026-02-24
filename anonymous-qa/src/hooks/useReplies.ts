@@ -12,7 +12,8 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { Reply } from '../types';
-import { getAnonymousIdentity } from '../utils/names';
+import { getAnonymousIdentity, getAnonymousUserId } from '../utils/names';
+import { deleteDoc } from 'firebase/firestore';
 
 export function useReplies(questionId: string, commentId: string) {
   const [replies, setReplies] = useState<Reply[]>([]);
@@ -49,6 +50,7 @@ export function useReplies(questionId: string, commentId: string) {
     await addDoc(collection(db, 'questions', questionId, 'comments', commentId, 'replies'), {
       text,
       author: getAnonymousIdentity(),
+      authorId: getAnonymousUserId(),
       createdAt: serverTimestamp(),
     });
 
@@ -57,5 +59,14 @@ export function useReplies(questionId: string, commentId: string) {
     });
   };
 
-  return { replies, loading, addReply };
+  const deleteReply = async (replyId: string) => {
+    const replyRef = doc(db, 'questions', questionId, 'comments', commentId, 'replies', replyId);
+    await deleteDoc(replyRef);
+
+    await updateDoc(doc(db, 'questions', questionId, 'comments', commentId), {
+      repliesCount: increment(-1)
+    });
+  };
+
+  return { replies, loading, addReply, deleteReply };
 }

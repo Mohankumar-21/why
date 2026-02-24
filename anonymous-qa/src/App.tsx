@@ -83,9 +83,9 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50/50 dark:bg-[#0B0F1A] text-slate-900 dark:text-slate-100 transition-colors duration-300">
+    <div className="min-h-screen flex flex-col bg-slate-50/50 dark:bg-black text-slate-900 dark:text-slate-100 transition-colors duration-300">
       {/* Navbar */}
-      <nav className="sticky top-0 z-50 bg-white/80 dark:bg-[#0B0F1A]/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 w-full px-6 shrink-0 h-16 flex items-center justify-between">
+      <nav className="sticky top-0 z-50 bg-white/80 dark:bg-black/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 w-full px-6 shrink-0 h-16 flex items-center justify-between">
         <div className="flex items-center gap-4">
           {view === 'detail' && (
             <Button variant="ghost" size="sm" onClick={handleBack} className="rounded-full w-10 h-10 p-0">
@@ -507,7 +507,7 @@ function CommentItem({ comment, questionId, onLike, onDelete }: { comment: Comme
         
         {isAuthor && (
           <button 
-            onClick={() => { if(window.confirm('Delete this comment and all its replies?')) onDelete(); }}
+            onClick={() => { if(window.confirm('Delete this comment')) onDelete(); }}
             className="absolute top-6 right-6 p-2 text-slate-400 hover:text-rose-500 bg-slate-50 dark:bg-slate-800 rounded-xl transition-all hover:scale-110 shadow-sm border dark:border-slate-700"
             title="Delete your comment"
           >

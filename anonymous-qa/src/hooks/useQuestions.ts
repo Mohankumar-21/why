@@ -11,10 +11,10 @@ import {
   increment
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
-import { Question, Category } from '../types';
+import { Question, Category, SortOption } from '../types';
 import { getAnonymousIdentity } from '../utils/names';
 
-export function useQuestions(category: Category | 'All' = 'All') {
+export function useQuestions(category: Category | 'All' = 'All', sortBy: SortOption = 'Trending') {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -36,18 +36,29 @@ export function useQuestions(category: Category | 'All' = 'All') {
         filtered = docs.filter(q => q.category === category);
       }
       
-      // Sort by trending score (descending)
-      // score + (commentCount * 2) provides a balanced view of approval + engagement
+      // Dynamic Sorting
       filtered.sort((a, b) => {
-        const aTrending = (a.score || 0) + ((a.commentCount || 0) * 2);
-        const bTrending = (b.score || 0) + ((b.commentCount || 0) * 2);
-        
-        const trendDiff = bTrending - aTrending;
-        if (trendDiff !== 0) return trendDiff;
-        
         const aDate = a.createdAt instanceof Date ? a.createdAt : (a.createdAt as any).toDate();
         const bDate = b.createdAt instanceof Date ? b.createdAt : (b.createdAt as any).toDate();
-        return bDate.getTime() - aDate.getTime();
+
+        switch (sortBy) {
+          case 'Recent':
+            return bDate.getTime() - aDate.getTime();
+          case 'Oldest':
+            return aDate.getTime() - bDate.getTime();
+          case 'Top':
+            return (b.score || 0) - (a.score || 0);
+          case 'Most Discussed':
+            return (b.commentCount || 0) - (a.commentCount || 0);
+          case 'Trending':
+          default:
+            // score + (commentCount * 2) provides a balanced view of approval + engagement
+            const aTrending = (a.score || 0) + ((a.commentCount || 0) * 2);
+            const bTrending = (b.score || 0) + ((b.commentCount || 0) * 2);
+            const trendDiff = bTrending - aTrending;
+            if (trendDiff !== 0) return trendDiff;
+            return bDate.getTime() - aDate.getTime();
+        }
       });
       
       setQuestions(filtered);
@@ -55,7 +66,7 @@ export function useQuestions(category: Category | 'All' = 'All') {
     });
 
     return () => unsubscribe();
-  }, [category]);
+  }, [category, sortBy]);
 
   const createQuestion = async (title: string, category: Category) => {
     await addDoc(collection(db, 'questions'), {

@@ -4,7 +4,7 @@ import { useQuestions } from './hooks/useQuestions';
 import { useComments } from './hooks/useComments';
 import { useReplies } from './hooks/useReplies';
 import { useSpamPrevention } from './hooks/useSpamPrevention';
-import type { Category, Question, Comment } from './types';
+import type { Category, Question, Comment, SortOption } from './types';
 import { Button, Card, cn } from './components/UI';
 import { 
   Plus, 
@@ -26,7 +26,10 @@ import {
   Trash2,
   Languages,
   Check,
-  ChevronDown
+  ChevronDown,
+  Clock,
+  Calendar,
+  TrendingUp
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { getAnonymousUserId, getAnonymousIdentity } from './utils/names';
@@ -48,7 +51,8 @@ const CATEGORIES: (Category | 'All')[] = [
 function App() {
   const { theme, toggleTheme } = useTheme();
   const [selectedCategory, setSelectedCategory] = useState<Category | 'All'>('All');
-  const { questions, loading, createQuestion, vote } = useQuestions(selectedCategory);
+  const [sortBy, setSortBy] = useState<SortOption>('Trending');
+  const { questions, loading, createQuestion, vote } = useQuestions(selectedCategory, sortBy);
   const { canPost, timeLeft, recordPost } = useSpamPrevention();
   
   // Navigation State
@@ -122,22 +126,53 @@ function App() {
       )}>
         {view === 'feed' ? (
           <div className="space-y-8 max-w-full">
-            <div className="sticky top-0 z-40 bg-white/80 dark:bg-[#0B0F1A]/80 backdrop-blur-sm py-4 overflow-x-auto no-scrollbar border-b border-slate-100 dark:border-slate-800/50 -mx-6 px-6">
-              <div className="flex gap-2">
-                {CATEGORIES.map(cat => (
-                  <button
-                    key={cat}
-                    onClick={() => setSelectedCategory(cat)}
-                    className={cn(
-                      "px-5 py-2.5 rounded-full text-sm font-semibold transition-all whitespace-nowrap",
-                      selectedCategory === cat
-                        ? "bg-indigo-600 text-white shadow-lg shadow-indigo-200 dark:shadow-none translate-y-[-1px]"
-                        : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:border-indigo-300 dark:hover:border-indigo-800"
-                    )}
-                  >
-                    {cat}
-                  </button>
-                ))}
+            <div className="flex flex-col gap-4 sticky top-0 z-40 bg-white/80 dark:bg-[#0B0F1A]/80 backdrop-blur-sm py-4 -mx-6 px-6 border-b border-slate-100 dark:border-slate-800/50">
+              {/* Category Filter */}
+              <div className="overflow-x-auto no-scrollbar pb-1">
+                <div className="flex gap-2">
+                  {CATEGORIES.map(cat => (
+                    <button
+                      key={cat}
+                      onClick={() => setSelectedCategory(cat)}
+                      className={cn(
+                        "px-5 py-2.5 rounded-full text-sm font-semibold transition-all whitespace-nowrap",
+                        selectedCategory === cat
+                          ? "bg-indigo-600 text-white shadow-lg shadow-indigo-200 dark:shadow-none translate-y-[-1px]"
+                          : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:border-indigo-300 dark:hover:border-indigo-800"
+                      )}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Sort Filter */}
+              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 border-t dark:border-slate-800/50 pt-3">
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-600 mr-2 shrink-0">Sort By:</span>
+                <div className="flex gap-2">
+                  {[
+                    { id: 'Trending', icon: Zap, label: 'Trending' },
+                    { id: 'Recent', icon: Clock, label: 'Recent' },
+                    { id: 'Oldest', icon: Calendar, label: 'Oldest' },
+                    { id: 'Top', icon: TrendingUp, label: 'Top Voted' },
+                    { id: 'Most Discussed', icon: MessageSquare, label: 'Most Discussed' }
+                  ].map(sort => (
+                    <button
+                      key={sort.id}
+                      onClick={() => setSortBy(sort.id as SortOption)}
+                      className={cn(
+                        "flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap border shrink-0",
+                        sortBy === sort.id
+                          ? "bg-slate-900 dark:bg-white text-white dark:text-black border-slate-900 dark:border-white shadow-md shadow-slate-200 dark:shadow-none translate-y-[-1px]"
+                          : "bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-500 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700"
+                      )}
+                    >
+                      <sort.icon className="w-3.5 h-3.5" />
+                      {sort.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -291,7 +326,11 @@ function QuestionCard({ question, onVote, onClick }: { question: Question, onVot
     setIsTranslating(true);
     setShowLangPicker(false);
     try {
-      const translated = await translateText(question.title, langCode);
+      const selectedLanguage = SUPPORTED_LANGUAGES.find(l => l.code === langCode);
+      const target = (selectedLanguage as any)?.target || langCode;
+      const source = (selectedLanguage as any)?.source || 'autodetect';
+
+      const translated = await translateText(question.title, target, source);
       setTranslatedTitle(translated);
       setSelectedLang(langCode);
     } finally {
@@ -503,7 +542,11 @@ function QuestionDetail({ question }: { question: Question, onVote: any, onBack:
     setIsTranslating(true);
     setShowLangPicker(false);
     try {
-      const translated = await translateText(question.title, langCode);
+      const selectedLanguage = SUPPORTED_LANGUAGES.find(l => l.code === langCode);
+      const target = (selectedLanguage as any)?.target || langCode;
+      const source = (selectedLanguage as any)?.source || 'autodetect';
+
+      const translated = await translateText(question.title, target, source);
       setTranslatedTitle(translated);
       setSelectedLang(langCode);
     } finally {
@@ -519,8 +562,9 @@ function QuestionDetail({ question }: { question: Question, onVote: any, onBack:
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-64px)] bg-white dark:bg-[#0B0F1A] animate-in slide-in-from-right-4 duration-300 overflow-hidden">
-      <div className="border-b dark:border-slate-800 bg-white/50 dark:bg-[#0B0F1A]/50 backdrop-blur-xl p-6 lg:p-10 shrink-0 z-20">
+    <div className="flex flex-col h-[calc(100vh-64px)] bg-white dark:bg-[#0B0F1A] animate-in slide-in-from-right-4 duration-300 overflow-y-auto thin-scrollbar">
+      {/* Question Section */}
+      <div className="border-b dark:border-slate-800 bg-white/50 dark:bg-[#0B0F1A]/50 backdrop-blur-xl p-6 lg:p-10 shrink-0">
         <div className="max-w-4xl mx-auto space-y-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -617,7 +661,9 @@ function QuestionDetail({ question }: { question: Question, onVote: any, onBack:
           </div>
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto thin-scrollbar bg-slate-50/50 dark:bg-slate-900/30">
+
+      {/* Discussion Section */}
+      <div className="bg-slate-50/50 dark:bg-slate-900/30">
         <div className="max-w-4xl mx-auto p-6 lg:p-10 space-y-10 pb-24">
           <div className="space-y-6">
             <h3 className="text-xl font-black flex items-center gap-3 text-slate-700 dark:text-slate-300">Discussion Feed <span className="px-3 py-1 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-xl text-xs text-slate-500 dark:text-slate-400">{question.commentCount || 0}</span></h3>
@@ -666,6 +712,11 @@ function CommentItem({ comment, questionId, onLike, onDelete }: { comment: Comme
     return !!likes[comment.id];
   });
   
+  const [translatedText, setTranslatedText] = useState<string | null>(null);
+  const [isTranslating, setIsTranslating] = useState(false);
+  const [showLangPicker, setShowLangPicker] = useState(false);
+  const [selectedLang, setSelectedLang] = useState<string | null>(null);
+
   const currentUserId = getAnonymousUserId();
   // For older comments without authorId, we check if the author name matches exactly (fallible but better than nothing)
   // In a real app we'd migrate data, but for this anonymous app we'll be slightly more permissive for the current session user
@@ -682,6 +733,29 @@ function CommentItem({ comment, questionId, onLike, onDelete }: { comment: Comme
     }
     localStorage.setItem('comment_likes', JSON.stringify(likes));
     setIsLiked(!isLiked);
+  };
+
+  const handleTranslate = async (langCode: string) => {
+    if (selectedLang === langCode) {
+      setTranslatedText(null);
+      setSelectedLang(null);
+      setShowLangPicker(false);
+      return;
+    }
+
+    setIsTranslating(true);
+    setShowLangPicker(false);
+    try {
+      const selectedLanguage = SUPPORTED_LANGUAGES.find(l => l.code === langCode);
+      const target = (selectedLanguage as any)?.target || langCode;
+      const source = (selectedLanguage as any)?.source || 'autodetect';
+
+      const translated = await translateText(comment.text, target, source);
+      setTranslatedText(translated);
+      setSelectedLang(langCode);
+    } finally {
+      setIsTranslating(false);
+    }
   };
 
   const handleAddReply = async (e: React.FormEvent) => {
@@ -715,10 +789,72 @@ function CommentItem({ comment, questionId, onLike, onDelete }: { comment: Comme
                <span className="font-extrabold text-sm text-slate-800 dark:text-slate-200">{comment.author || 'Anonymous'}</span>
                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{createdAt ? formatDistanceToNow(createdAt, { addSuffix: true }) : 'just now'}</span>
             </div>
-            <p className="text-slate-700 dark:text-slate-300 leading-relaxed text-base italic">{comment.text}</p>
+            <div className="space-y-2">
+              <p className={cn(
+                "text-slate-700 dark:text-slate-300 leading-relaxed text-base italic transition-all",
+                translatedText && "text-slate-400 dark:text-slate-500 text-sm"
+              )}>
+                {comment.text}
+              </p>
+              {translatedText && (
+                <div className="animate-in fade-in slide-in-from-top-1 duration-300">
+                  <p className="text-slate-800 dark:text-slate-100 leading-relaxed text-base font-bold italic border-l-2 border-indigo-500 pl-3">
+                    {translatedText}
+                  </p>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-indigo-500 mt-1 block">
+                    Translated to {SUPPORTED_LANGUAGES.find(l => l.code === selectedLang)?.name}
+                  </span>
+                </div>
+              )}
+            </div>
             <div className="flex items-center gap-6 pt-1">
                <button onClick={handleLike} className={cn("flex items-center gap-2 text-xs font-black transition-all hover:scale-110 active:scale-95", isLiked ? "text-rose-500" : "text-slate-400 hover:text-rose-500")}><Heart className={cn("w-4 h-4", isLiked && "fill-current")} />{comment.likes || 0}</button>
                <button onClick={() => setShowReplyForm(!showReplyForm)} className="flex items-center gap-2 text-xs font-black text-slate-400 hover:text-indigo-600 transition-colors"><ReplyIcon className="w-4 h-4" />{comment.repliesCount || 0} Replies</button>
+               
+               <div className="relative">
+                <button 
+                  onClick={() => setShowLangPicker(!showLangPicker)}
+                  className={cn(
+                    "flex items-center gap-2 text-xs font-black transition-colors p-1 rounded-lg",
+                    selectedLang ? "text-indigo-600 bg-indigo-50 dark:bg-indigo-900/20" : "text-slate-400 hover:text-indigo-600"
+                  )}
+                >
+                  {isTranslating ? (
+                    <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <Languages className="w-4 h-4" />
+                      {selectedLang ? SUPPORTED_LANGUAGES.find(l => l.code === selectedLang)?.name : 'Translate'}
+                    </>
+                  )}
+                </button>
+
+                {showLangPicker && (
+                  <div className="absolute bottom-full left-0 mb-2 w-40 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl py-2 z-[60] animate-in fade-in zoom-in-95 duration-200">
+                    {SUPPORTED_LANGUAGES.map(lang => (
+                      <button
+                        key={lang.code}
+                        onClick={() => handleTranslate(lang.code)}
+                        className={cn(
+                          "w-full px-4 py-2.5 text-left text-sm font-bold flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors",
+                          selectedLang === lang.code ? "text-indigo-600 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-900/20" : "text-slate-600 dark:text-slate-400"
+                        )}
+                      >
+                        {lang.name}
+                        {selectedLang === lang.code && <Check className="w-4 h-4" />}
+                      </button>
+                    ))}
+                    {selectedLang && (
+                      <button
+                        onClick={() => { setTranslatedText(null); setSelectedLang(null); setShowLangPicker(false); }}
+                        className="w-full px-4 py-2.5 text-left text-xs font-black uppercase tracking-widest text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors border-t dark:border-slate-800 mt-1"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                )}
+               </div>
             </div>
           </div>
         </div>
@@ -732,27 +868,131 @@ function CommentItem({ comment, questionId, onLike, onDelete }: { comment: Comme
       {replies.length > 0 && (
         <div className="ml-8 lg:ml-14 space-y-4 border-l-2 border-indigo-100 dark:border-indigo-900/40 pl-6 py-2">
           {replies.map(reply => (
-            <div key={reply.id} className="bg-slate-50/80 dark:bg-slate-800/20 p-5 rounded-2xl border border-slate-100 dark:border-slate-800/40 relative shadow-sm hover:bg-white dark:hover:bg-slate-800/40 transition-colors group/reply">
-              
-              {(reply.authorId === currentUserId || (reply.author === getAnonymousIdentity() && !reply.authorId)) && (
-                <button 
-                  onClick={() => { if(window.confirm('Delete this reply?')) deleteReply(reply.id); }}
-                  className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-rose-500 bg-white dark:bg-slate-900 border dark:border-slate-800 rounded-lg transition-all hover:scale-110 shadow-sm"
-                  title="Delete your reply"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              )}
-
-              <div className="flex items-center gap-2 mb-2">
-                 <div className="w-6 h-6 rounded-lg bg-indigo-50 dark:bg-indigo-900/40 flex items-center justify-center"><User className="w-3 h-3 text-indigo-400" /></div>
-                 <span className="text-[11px] font-black text-slate-600 dark:text-slate-400 truncate max-w-[120px]">{reply.author || 'Anonymous'}</span>
-              </div>
-              <p className="text-[15px] text-slate-600 dark:text-slate-200 leading-relaxed font-medium">{reply.text}</p>
-            </div>
+            <ReplyItem 
+              key={reply.id} 
+              reply={reply} 
+              onDelete={() => deleteReply(reply.id)}
+              currentUserId={currentUserId}
+              anonymousIdentity={getAnonymousIdentity()}
+            />
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function ReplyItem({ 
+  reply, 
+  onDelete, 
+  currentUserId,
+  anonymousIdentity 
+}: { 
+  reply: any, 
+  onDelete: () => void, 
+  currentUserId: string,
+  anonymousIdentity: string
+}) {
+  const [translatedText, setTranslatedText] = useState<string | null>(null);
+  const [isTranslating, setIsTranslating] = useState(false);
+  const [showLangPicker, setShowLangPicker] = useState(false);
+  const [selectedLang, setSelectedLang] = useState<string | null>(null);
+
+  const handleTranslate = async (langCode: string) => {
+    if (selectedLang === langCode) {
+      setTranslatedText(null);
+      setSelectedLang(null);
+      setShowLangPicker(false);
+      return;
+    }
+
+    setIsTranslating(true);
+    setShowLangPicker(false);
+    try {
+      const selectedLanguage = SUPPORTED_LANGUAGES.find(l => l.code === langCode);
+      const target = (selectedLanguage as any)?.target || langCode;
+      const source = (selectedLanguage as any)?.source || 'autodetect';
+
+      const translated = await translateText(reply.text, target, source);
+      setTranslatedText(translated);
+      setSelectedLang(langCode);
+    } finally {
+      setIsTranslating(false);
+    }
+  };
+
+  const isAuthor = reply.authorId === currentUserId || (reply.author === anonymousIdentity && !reply.authorId);
+
+  return (
+    <div className="bg-slate-50/80 dark:bg-slate-800/20 p-5 rounded-2xl border border-slate-100 dark:border-slate-800/40 relative shadow-sm hover:bg-white dark:hover:bg-slate-800/40 transition-colors group/reply">
+      
+      {isAuthor && (
+        <button 
+          onClick={() => { if(window.confirm('Delete this reply?')) onDelete(); }}
+          className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-rose-500 bg-white dark:bg-slate-900 border dark:border-slate-800 rounded-lg transition-all hover:scale-110 shadow-sm"
+          title="Delete your reply"
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </button>
+      )}
+
+      <div className="flex items-center justify-between mb-2">
+         <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded-lg bg-indigo-50 dark:bg-indigo-900/40 flex items-center justify-center"><User className="w-3 h-3 text-indigo-400" /></div>
+            <span className="text-[11px] font-black text-slate-600 dark:text-slate-400 truncate max-w-[120px]">{reply.author || 'Anonymous'}</span>
+         </div>
+
+         <div className="relative opacity-0 group-hover/reply:opacity-100 focus-within:opacity-100 transition-opacity">
+            <button 
+              onClick={() => setShowLangPicker(!showLangPicker)}
+              className={cn(
+                "flex items-center gap-1.5 text-[10px] font-black transition-colors p-1 rounded-md",
+                selectedLang ? "text-indigo-600 bg-indigo-50 dark:bg-indigo-900/20" : "text-slate-400 hover:text-indigo-600"
+              )}
+            >
+              {isTranslating ? (
+                <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <Languages className="w-3 h-3" />
+              )}
+              {selectedLang ? SUPPORTED_LANGUAGES.find(l => l.code === selectedLang)?.name : 'Translate'}
+            </button>
+
+            {showLangPicker && (
+              <div className="absolute top-full right-0 mt-2 w-36 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl py-1.5 z-[60] animate-in fade-in zoom-in-95 duration-200">
+                {SUPPORTED_LANGUAGES.map(lang => (
+                  <button
+                    key={lang.code}
+                    onClick={() => handleTranslate(lang.code)}
+                    className={cn(
+                      "w-full px-3 py-1.5 text-left text-xs font-bold flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors",
+                      selectedLang === lang.code ? "text-indigo-600 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-900/20" : "text-slate-600 dark:text-slate-400"
+                    )}
+                  >
+                    {lang.name}
+                    {selectedLang === lang.code && <Check className="w-3 h-3" />}
+                  </button>
+                ))}
+              </div>
+            )}
+         </div>
+      </div>
+      
+      <div className="space-y-2">
+        <p className={cn(
+          "text-[15px] text-slate-600 dark:text-slate-200 leading-relaxed font-medium transition-all",
+          translatedText && "text-slate-400 dark:text-slate-500 text-xs"
+        )}>
+          {reply.text}
+        </p>
+        {translatedText && (
+          <div className="animate-in fade-in slide-in-from-top-1 duration-300">
+             <p className="text-[15px] text-slate-800 dark:text-slate-100 leading-relaxed font-bold italic border-l-2 border-indigo-500 pl-3">
+              {translatedText}
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

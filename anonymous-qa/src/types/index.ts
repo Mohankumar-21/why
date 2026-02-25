@@ -1,6 +1,7 @@
 import { Timestamp } from 'firebase/firestore';
 
 export type Category = 'General' | 'Sports' | 'Spiritual' | 'Technology' | 'Life' | 'Health' | 'Business' | 'Entertainment' | 'Other';
+export type SortOption = 'Trending' | 'Recent' | 'Oldest' | 'Top' | 'Most Discussed';
 
 export interface Question {
   id: string;
